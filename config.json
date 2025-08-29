@@ -1,0 +1,53 @@
+{
+  "api": {
+    "url": "https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=08770f92-93ff-490a-9e48-7c062c2ba737",
+    "timeout": 15000,
+    "retryAttempts": 3,
+    "retryDelay": 1000,
+    "cacheTimeout": 10000
+  },
+  "display": {
+    "compactMode": true,
+    "showRequests": true,
+    "showTokens": true,
+    "showCost": true,
+    "showPercentage": true,
+    "showTrends": true,
+    "showApiStats": false,
+    "maxLength": 100
+  },
+  "alerts": {
+    "costWarningThreshold": 60,
+    "costCriticalThreshold": 80,
+    "enableNotifications": false
+  },
+  "cache": {
+    "enablePersistent": true,
+    "maxHistorySize": 10,
+    "offlineMode": false
+  },
+  "statusbar": {
+    "updateInterval": 15,
+    "position": "right",
+    "priority": 100,
+    "separator": "|",
+    "icons": {
+      "normal": "🟢",
+      "warning": "🟡",
+      "critical": "🔴",
+      "error": "❌",
+      "trending_up": "📈",
+      "trending_down": "📉",
+      "claude": "🤖",
+      "requests": "📊",
+      "tokens": "🔤",
+      "cost": "💰",
+      "context": "🧠"
+    }
+  },
+  "debug": {
+    "enableLogging": false,
+    "logLevel": "info",
+    "logFile": ".claude/statusbar.log"
+  }
+}

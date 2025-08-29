@@ -1,0 +1,71 @@
+# 开发文件
+.git/
+.gitignore
+.claude/
+.cursor/
+.serena/
+.superdesign/
+.vscode/
+.idea/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test/
+tests/
+__tests__/
+coverage/
+
+# 构建文件
+build/
+dist/
+out/
+
+# 依赖
+node_modules/
+
+# 本地配置
+.env
+.env.local
+.env.*.local
+config.local.json
+settings.local.json
+
+# 截图和临时数据
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+extracted-data.json
+parsed-stats.json
+*-current-stats.json
+*-stats-history.json
+
+# 开发工具
+.eslintrc*
+.prettierrc*
+jest.config.js
+tsconfig.json
+
+# 文档草稿
+*.draft.md
+TODO.md
+NOTES.md
+
+# IDE相关
+*.code-workspace
+.windsurfrules
+
+# 其他
+*.bak
+*.swp
+*.swo

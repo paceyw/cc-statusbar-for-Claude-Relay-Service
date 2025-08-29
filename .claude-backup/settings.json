@@ -1,0 +1,12 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node",
+    "args": [
+      "D:\\OneDrive\\programming\\cc_statusbar\\statusline.js"
+    ],
+    "cwd": "D:\\OneDrive\\programming\\cc_statusbar",
+    "interval": 30000,
+    "shell": true
+  }
+}

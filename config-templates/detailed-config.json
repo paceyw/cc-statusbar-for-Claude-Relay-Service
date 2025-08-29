@@ -1,0 +1,41 @@
+{
+  "_comment": "详细配置 - 显示所有可用信息",
+  "api": {
+    "url": "你的Claude管理页面URL",
+    "timeout": 20000,
+    "retryAttempts": 5,
+    "cacheTimeout": 60000
+  },
+  "display": {
+    "showRequests": true,
+    "showTokens": true,
+    "showCost": true,
+    "showPercentage": true,
+    "showTrends": true,
+    "showApiStats": true,
+    "showExpiry": true,
+    "showLastUpdate": true,
+    "maxLineLength": 100,
+    "enableMultiLine": true
+  },
+  "statusbar": {
+    "updateInterval": 30,
+    "separator": " | ",
+    "icons": {
+      "normal": "✅",
+      "warning": "⚠️",
+      "critical": "🚨",
+      "error": "❌",
+      "trending_up": "↗️",
+      "trending_down": "↘️"
+    }
+  },
+  "alerts": {
+    "costWarningThreshold": 50,
+    "costCriticalThreshold": 75,
+    "enableNotifications": true
+  },
+  "debug": {
+    "enableLogging": true
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "statusbar": {
+    "enabled": true,
+    "command": "node",
+    "args": ["./statusline.js"],
+    "cwd": "D:\\OneDrive\\programming\\cc_statusbar",
+    "refresh_interval": 30000,
+    "position": "right",
+    "priority": 100,
+    "timeout": 10000
+  },
+  "plugins": {
+    "claude-code-statusbar": {
+      "enabled": true,
+      "auto_start": true,
+      "display_mode": "compact"
+    }
+  }
+}

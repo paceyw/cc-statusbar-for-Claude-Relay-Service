@@ -1,0 +1,12 @@
+{
+  "name": "Claude API Status",
+  "command": "node",
+  "args": ["./statusline.js"],
+  "cwd": "D:\\OneDrive\\programming\\cc_statusbar",
+  "refresh_interval": 30,
+  "format": "text",
+  "priority": 100,
+  "position": "right",
+  "enabled": true,
+  "timeout": 10000
+}

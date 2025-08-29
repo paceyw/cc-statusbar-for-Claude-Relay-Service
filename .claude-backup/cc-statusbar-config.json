@@ -1,0 +1,49 @@
+{
+  "_comment": "Claude Code 状态栏配置文件 - 由安装脚本生成",
+  "api": {
+    "url": "https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=08770f92-93ff-490a-9e48-7c062c2ba737",
+    "timeout": 15000,
+    "retryAttempts": 3,
+    "retryDelay": 1000,
+    "cacheTimeout": 30000
+  },
+  "display": {
+    "showRequests": true,
+    "showTokens": true,
+    "showCost": true,
+    "showPercentage": true,
+    "showTrends": true,
+    "showApiStats": false,
+    "showExpiry": true,
+    "showLastUpdate": true,
+    "maxLineLength": 100,
+    "enableMultiLine": true
+  },
+  "statusbar": {
+    "updateInterval": 30,
+    "separator": " | ",
+    "icons": {
+      "normal": "🟢",
+      "warning": "🟡",
+      "critical": "🔴",
+      "error": "❌",
+      "trending_up": "📈",
+      "trending_down": "📉"
+    }
+  },
+  "alerts": {
+    "costWarningThreshold": 60,
+    "costCriticalThreshold": 80,
+    "enableNotifications": false
+  },
+  "cache": {
+    "enablePersistent": true,
+    "maxHistorySize": 10,
+    "offlineMode": false
+  },
+  "debug": {
+    "enableLogging": false,
+    "logLevel": "info",
+    "logFile": ".claude/statusbar.log"
+  }
+}

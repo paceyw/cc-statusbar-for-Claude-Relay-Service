@@ -1,0 +1,27 @@
+{
+  "_comment": "IDE专用Claude Code状态栏配置",
+  "api": {
+    "url": "https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=08770f92-93ff-490a-9e48-7c062c2ba737",
+    "timeout": 10000,
+    "retryAttempts": 2,
+    "retryDelay": 500,
+    "cacheTimeout": 30000
+  },
+  "display": {
+    "showRequests": true,
+    "showTokens": true,
+    "showCost": true,
+    "showPercentage": true,
+    "showTrends": false,
+    "showApiStats": false,
+    "showExpiry": true,
+    "showLastUpdate": true,
+    "maxLineLength": 80,
+    "enableMultiLine": false
+  },
+  "debug": {
+    "enableLogging": true,
+    "logLevel": "debug",
+    "logFile": ".claude/ide-statusbar.log"
+  }
+}

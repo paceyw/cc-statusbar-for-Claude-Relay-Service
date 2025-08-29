@@ -1,0 +1,167 @@
+# Node.js 依赖包
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 包管理器锁定文件
+package-lock.json
+yarn.lock
+
+# 运行时生成的文件
+*.pid
+*.seed
+*.pid.lock
+
+# 覆盖率报告目录
+coverage/
+*.lcov
+
+# nyc 测试覆盖率
+.nyc_output
+
+# Grunt 中间存储
+.grunt
+
+# Bower 依赖目录
+bower_components
+
+# node-waf 配置
+.lock-wscript
+
+# 编译的二进制插件
+build/Release
+
+# TypeScript v1 声明文件
+typings/
+
+# 可选 npm 缓存目录
+.npm
+
+# 可选 eslint 缓存
+.eslintcache
+
+# Microbundle 缓存
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# 可选 REPL 历史
+.node_repl_history
+
+# npm 打包文件
+*.tgz
+
+# Yarn 完整性文件
+.yarn-integrity
+
+# dotenv 环境变量文件
+.env
+.env.test
+.env.local
+.env.production
+
+# parcel-bundler 缓存
+.cache/
+.parcel-cache/
+
+# Next.js 构建输出
+.next/
+
+# Nuxt.js 构建/生成输出
+.nuxt
+dist
+
+# Gatsby 文件
+.cache/
+public
+
+# Storybook 构建输出
+.out
+.storybook-out
+
+# 临时文件夹
+tmp/
+temp/
+
+# 编辑器和IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Claude Code 相关文件
+.claude/
+.serena/
+
+# 日志文件
+*.log
+
+# 配置文件（包含敏感信息）
+config-local.json
+.config
+
+# 缓存文件
+*-cache.json
+cache/
+
+# 测试和调试文件
+test-debug.js
+test-updates.js
+*-debug.js
+*-debug-*.js
+
+# 临时生成的文件
+*-temp.js
+temp-*.js
+
+# IDE 特定文件
+ide-*.js
+*-ide.js
+
+# 打包和构建文件
+build/
+dist/
+*.tgz
+*.tar.gz
+
+# 文档草稿和临时文档
+*-draft.md
+temp-*.md
+draft-*.md
+
+# 个人配置和笔记
+personal-*.json
+notes-*.md
+私人*.md
+个人*.md
+
+# API 密钥和敏感配置
+api-keys.json
+secrets.json
+.secrets
+
+# 截图和图片（可能包含敏感信息）
+screenshot*.png
+api-stats*.png
+*-screenshot.*
+
+# 错误排查和调试相关
+fix-*.js
+debug-*.js
+troubleshoot*.js
+troubleshoot*.md
+问题排查*.md
+故障排除*.md
