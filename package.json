@@ -1,11 +1,11 @@
 {
   "name": "claude-code-statusbar",
-  "version": "2.0.4",
+  "version": "2.1.0",
   "description": "Claude Code状态栏插件：实时监控中转API服务器用量统计",
   "main": "statusline.js",
   "bin": {
-    "cc-statusbar": "./bin/cc-statusbar.js",
-    "claude-statusbar": "./bin/cc-statusbar.js"
+    "cc-statusbar": "bin/cc-statusbar.js",
+    "claude-statusbar": "bin/cc-statusbar.js"
   },
   "scripts": {
     "test": "node test.js",
@@ -47,7 +47,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/paceyw/cc-statusbar-for-Claude-Relay-Service.git"
+    "url": "git+https://github.com/paceyw/cc-statusbar-for-Claude-Relay-Service.git"
   },
   "homepage": "https://github.com/paceyw/cc-statusbar-for-Claude-Relay-Service#readme",
   "bugs": {
