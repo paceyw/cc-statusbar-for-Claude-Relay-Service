@@ -1,6 +1,6 @@
 {
   "name": "claude-code-statusbar",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Claude Code状态栏插件：实时监控中转API服务器用量统计",
   "main": "statusline.js",
   "bin": {

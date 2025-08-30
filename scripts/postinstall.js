@@ -58,26 +58,29 @@ function getStatuslinePath() {
 }
 
 function buildStatusLineConfig(options = {}) {
-    const nodePath = resolveNodeAbsolute();
     const pkgDir = getPackageDir();
-    const statusline = getStatuslinePath();
-
+    const statuslineScript = path.join(pkgDir, 'statusline.js');
+    
     const maxlen = String(options.maxlen || process.env.CC_STATUS_MAXLEN || '120');
-    const scrapeUrl = options.scrapeUrl || process.env.CC_SCRAPE_URL; // 仅在安装环境提供时注入
+    const scrapeUrl = options.scrapeUrl || process.env.CC_SCRAPE_URL;
 
+    // 构建环境变量对象
     const envObj = {
         CC_STATUS_MAXLEN: maxlen,
     };
     if (scrapeUrl) envObj.CC_SCRAPE_URL = scrapeUrl;
 
-    // 采用 command=node 绝对路径 + args=绝对脚本，避免 PATH 差异
+    // 使用与本地工作配置完全相同的格式
+    // 这是Claude Code实际期望的配置格式
     return {
         type: 'command',
-        command: nodePath,
-        args: [statusline],
-        workingDirectory: pkgDir,
-        refreshInterval: 60000,
-        env: envObj
+        command: `node "${statuslineScript}"`,  // 使用带引号的绝对路径，支持空格路径
+        cwd: pkgDir,                           // 使用cwd而不是workingDirectory  
+        interval: 60000,                       // 使用interval而不是refreshInterval
+        shell: true,                           // 启用shell模式，这是关键！
+        timeout: 10000,                        // 添加timeout字段
+        env: envObj,                           // 环境变量
+        description: "Claude API监控状态栏 - 显示请求、Token和费用统计（全局安装版）"
     };
 }
 

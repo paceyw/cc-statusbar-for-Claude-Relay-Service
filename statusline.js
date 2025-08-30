@@ -14,8 +14,28 @@ const AdminHtmlProvider = require('./admin-html-provider');
 
 class EnhancedStatusLine {
   constructor(config = {}) {
+    // 调试信息：显示运行环境
+    if (process.env.CC_DEBUG) {
+      console.error(`[DEBUG] ==> Claude StatusBar 初始化 <==`);
+      console.error(`[DEBUG] 包路径: ${__dirname}`);
+      console.error(`[DEBUG] 工作目录: ${process.cwd()}`);
+      console.error(`[DEBUG] Node版本: ${process.version}`);
+      console.error(`[DEBUG] 平台: ${process.platform}`);
+      console.error(`[DEBUG] 环境变量:`);
+      console.error(`[DEBUG] - CC_SCRAPE_URL: ${process.env.CC_SCRAPE_URL ? '已设置' : '未设置'}`);
+      console.error(`[DEBUG] - CC_STATUS_MAXLEN: ${process.env.CC_STATUS_MAXLEN || '未设置'}`);
+      console.error(`[DEBUG] - CC_PROJECT_LABEL: ${process.env.CC_PROJECT_LABEL || '未设置'}`);
+      console.error(`[DEBUG] - CC_DEBUG: ${process.env.CC_DEBUG || '未设置'}`);
+      console.error(`[DEBUG] - CC_CACHE_DIR: ${process.env.CC_CACHE_DIR || '未设置'}`);
+    }
+    
     // 加载配置文件
     const loadedConfig = this.loadConfig();
+    
+    // 调试信息：显示最终配置
+    if (process.env.CC_DEBUG) {
+      console.error(`[DEBUG] 加载的配置文件内容:`, JSON.stringify(loadedConfig, null, 2));
+    }
     
     this.config = Object.assign({
       fetchUrl: process.env.CC_SCRAPE_URL || 'https://your-api-domain.com:6443/admin-next/api-stats?apiId=your-api-id',
@@ -42,32 +62,98 @@ class EnhancedStatusLine {
       }
     }, loadedConfig, config);
 
+    // 调试信息：显示合并后的最终配置
+    if (process.env.CC_DEBUG) {
+      console.error(`[DEBUG] 最终合并配置:`, JSON.stringify(this.config, null, 2));
+      console.error(`[DEBUG] 抓取URL: ${this.config.fetchUrl}`);
+    }
+
     this.provider = new AdminHtmlProvider();
     this.history = [];
     this.lastUpdate = 0;
     this.contextInput = null;
+    
+    if (process.env.CC_DEBUG) {
+      console.error(`[DEBUG] StatusBar初始化完成`);
+    }
   }
 
   // 加载配置文件
   loadConfig() {
+    // 增强的配置查找策略，支持全局安装场景
     const configPaths = [
+      // 1. 当前工作目录（Claude Code运行目录）- 最高优先级
+      path.join(process.cwd(), '.claude', 'statusbar-config.json'),
+      path.join(process.cwd(), '.claude', 'config.json'),
+      path.join(process.cwd(), 'statusbar-config.json'),
+      
+      // 2. 全局用户配置目录
+      path.join(os.homedir(), '.claude', 'statusbar-config.json'),
+      path.join(os.homedir(), '.claude', 'config.json'),
+      
+      // 3. 包自身目录（开发环境或作为fallback）
       path.join(__dirname, '.claude', 'statusbar-config.json'),
       path.join(__dirname, 'statusbar-config.json'),
-      path.join(os.homedir(), '.claude', 'statusbar-config.json')
+      path.join(__dirname, 'config.json'),
     ];
 
+    let config = {};
+
+    // 逐个尝试配置文件路径
     for (const configPath of configPaths) {
       try {
         if (fs.existsSync(configPath)) {
           const configData = fs.readFileSync(configPath, 'utf8');
-          return JSON.parse(configData);
+          const parsedConfig = JSON.parse(configData);
+          
+          // 合并配置，支持部分配置覆盖
+          if (parsedConfig.statusbar) {
+            // 如果是Claude配置文件格式，提取statusbar部分
+            config = { ...config, ...parsedConfig.statusbar };
+          } else {
+            // 直接的statusbar配置文件
+            config = { ...config, ...parsedConfig };
+          }
+          
+          // 记录成功加载的配置文件（用于调试）
+          if (process.env.CC_DEBUG) {
+            console.error(`[DEBUG] 已加载配置: ${configPath}`);
+          }
         }
       } catch (e) {
         // 忽略配置文件读取错误，继续尝试下一个路径
+        if (process.env.CC_DEBUG) {
+          console.error(`[DEBUG] 配置文件读取失败 ${configPath}: ${e.message}`);
+        }
       }
     }
     
-    return {};
+    // 环境变量覆盖（最高优先级）
+    const envOverrides = {};
+    
+    if (process.env.CC_SCRAPE_URL) {
+      envOverrides.fetchUrl = process.env.CC_SCRAPE_URL;
+    }
+    
+    if (process.env.CC_STATUS_MAXLEN) {
+      const maxLen = parseInt(process.env.CC_STATUS_MAXLEN, 10);
+      if (maxLen > 0) {
+        envOverrides.maxLength = maxLen;
+      }
+    }
+    
+    if (process.env.CC_PROJECT_LABEL) {
+      envOverrides.projectLabel = process.env.CC_PROJECT_LABEL;
+    }
+
+    // 应用环境变量覆盖
+    config = { ...config, ...envOverrides };
+    
+    if (process.env.CC_DEBUG) {
+      console.error(`[DEBUG] 最终配置:`, JSON.stringify(config, null, 2));
+    }
+    
+    return config;
   }
 
   // 从 Claude Code 输入中解析上下文信息

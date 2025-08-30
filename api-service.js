@@ -30,7 +30,9 @@ class ApiService {
         this.cache = new Map();
         this.cacheTimeout = 30000; // 30秒缓存
         this.offlineMode = false;
-        this.persistentCachePath = path.join(process.cwd(), '.claude', 'cache.json');
+        
+        // 增强的缓存路径策略 - 优先使用用户主目录，支持全局安装
+        this.persistentCachePath = this.getPersistentCachePath();
         
         // 重试配置
         this.retryConfig = {
@@ -41,6 +43,36 @@ class ApiService {
         
         // 加载持久化缓存
         this.loadPersistentCache();
+    }
+
+    // 获取持久化缓存路径 - 支持全局安装场景
+    getPersistentCachePath() {
+        const os = require('os');
+        const path = require('path');
+        
+        // 缓存路径优先级：
+        // 1. 环境变量指定的路径
+        if (process.env.CC_CACHE_DIR) {
+            return path.join(process.env.CC_CACHE_DIR, 'cache.json');
+        }
+        
+        // 2. 用户主目录的.claude目录（全局配置目录）
+        const globalClaudeDir = path.join(os.homedir(), '.claude');
+        try {
+            // 确保目录存在
+            const fs = require('fs');
+            fs.mkdirSync(globalClaudeDir, { recursive: true });
+            return path.join(globalClaudeDir, 'statusbar-cache.json');
+        } catch (e) {
+            // 如果无法创建全局目录，回退到临时目录
+            if (process.env.CC_DEBUG) {
+                console.error(`[DEBUG] 无法创建全局缓存目录，回退到临时目录: ${e.message}`);
+            }
+        }
+        
+        // 3. 系统临时目录作为fallback
+        const tmpDir = os.tmpdir();
+        return path.join(tmpDir, 'claude-statusbar-cache.json');
     }
 
     /**
@@ -54,9 +86,20 @@ class ApiService {
                 Object.entries(cacheData).forEach(([key, value]) => {
                     this.cache.set(key, value);
                 });
+                
+                if (process.env.CC_DEBUG) {
+                    console.error(`[DEBUG] 已加载持久化缓存: ${this.persistentCachePath}, 条目数: ${Object.keys(cacheData).length}`);
+                }
+            } else {
+                if (process.env.CC_DEBUG) {
+                    console.error(`[DEBUG] 持久化缓存文件不存在: ${this.persistentCachePath}`);
+                }
             }
         } catch (error) {
-            // 忽略缓存加载错误
+            // 忽略缓存加载错误，但在调试模式下记录
+            if (process.env.CC_DEBUG) {
+                console.error(`[DEBUG] 缓存加载失败 ${this.persistentCachePath}: ${error.message}`);
+            }
         }
     }
 
@@ -65,15 +108,25 @@ class ApiService {
      */
     savePersistentCache() {
         try {
-            const cacheDir = path.dirname(this.persistentCachePath);
-            if (!fs.existsSync(cacheDir)) {
-                fs.mkdirSync(cacheDir, { recursive: true });
-            }
+            const path = require('path');
+            const fs = require('fs');
             
+            // 确保缓存目录存在
+            const cacheDir = path.dirname(this.persistentCachePath);
+            fs.mkdirSync(cacheDir, { recursive: true });
+            
+            // 转换Map为普通对象进行序列化
             const cacheData = Object.fromEntries(this.cache);
             fs.writeFileSync(this.persistentCachePath, JSON.stringify(cacheData, null, 2));
+            
+            if (process.env.CC_DEBUG) {
+                console.error(`[DEBUG] 已保存持久化缓存: ${this.persistentCachePath}, 条目数: ${Object.keys(cacheData).length}`);
+            }
         } catch (error) {
-            // 忽略缓存保存错误
+            // 忽略缓存保存错误，但在调试模式下记录
+            if (process.env.CC_DEBUG) {
+                console.error(`[DEBUG] 缓存保存失败 ${this.persistentCachePath}: ${error.message}`);
+            }
         }
     }
 
