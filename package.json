@@ -1,6 +1,6 @@
 {
   "name": "claude-code-statusbar",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Claude Code状态栏插件：实时监控中转API服务器用量统计",
   "main": "statusline.js",
   "bin": {
@@ -38,8 +38,8 @@
     "usage-stats"
   ],
   "author": {
-    "name": "Pacey_Wang",
-    "email": "pacey@example.com"
+    "name": "Claude Code Statusbar Contributors",
+    "email": "noreply@example.com"
   },
   "license": "MIT",
   "engines": {

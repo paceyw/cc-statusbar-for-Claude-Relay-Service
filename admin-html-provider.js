@@ -123,7 +123,7 @@ class AdminHtmlProvider {
         try {
           const u = new URL(url);
           const apiId = u.searchParams.get('apiId');
-          const origin = u.origin; // e.g., https://icode.cloudrainer.top:6443
+          const origin = u.origin; // e.g., https://your-api-domain.com:6443
           if (apiId) {
             usedJsonBranch = true;
             const jsonHeaders = {

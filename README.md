@@ -31,13 +31,11 @@
 
 ## 🚀 快速安装
 
-### 方式一：从打包文件安装
-
-下载 `claude-code-statusbar-2.0.2.tgz` 打包文件：
+### 方式一：NPM全局安装（推荐）
 
 ```bash
-# 从tgz文件安装
-npm install -g claude-code-statusbar-2.0.2.tgz
+# 从NPM仓库直接安装（推荐）
+npm i -g claude-code-statusbar
 
 # 验证安装
 cc-statusbar --version
@@ -46,7 +44,22 @@ cc-statusbar --version
 cc-statusbar
 ```
 
-### 方式二：源码安装
+### 方式二：从打包文件安装
+
+下载 `claude-code-statusbar-2.0.3.tgz` 打包文件：
+
+```bash
+# 从tgz文件安装
+npm install -g claude-code-statusbar-2.0.3.tgz
+
+# 验证安装
+cc-statusbar --version
+
+# 运行状态栏
+cc-statusbar
+```
+
+### 方式三：源码安装
 
 ```bash
 # 克隆仓库

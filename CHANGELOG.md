@@ -74,6 +74,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 所有文档和配置文件中的版本号统一更新至2.0.2
 - 完整测试通过，确保功能稳定性
 
+## [2.0.3] - 2025-08-30
+
+### Security
+- 🔒 **隐私增强**：清除代码中的个人信息，替换为通用信息
+- 🛡️ 更新作者信息为"Claude Code Statusbar Contributors"
+- 📧 将联系邮箱更新为通用邮箱地址
+
+### Added
+- 📦 **安装优化**：新增NPM全局安装方式作为首选安装方法
+- ✨ 更新README文档，添加`npm i -g claude-code-statusbar`安装指令
+
+### Changed
+- 📋 重新整理安装方式，NPM安装作为推荐方式
+- 📝 更新文档中的版本号引用至2.0.3
+
 ## [Unreleased]
 
 ### Planned

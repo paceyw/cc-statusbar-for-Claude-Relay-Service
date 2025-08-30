@@ -18,7 +18,7 @@ class EnhancedStatusLine {
     const loadedConfig = this.loadConfig();
     
     this.config = Object.assign({
-      fetchUrl: process.env.CC_SCRAPE_URL || 'https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=replace-me',
+      fetchUrl: process.env.CC_SCRAPE_URL || 'https://your-api-domain.com:6443/admin-next/api-stats?apiId=your-api-id',
       maxLength: 120, // 增加默认长度以容纳更多信息
       display: {
         // Shell PS1 风格显示选项 - 全部关闭以匹配用户期望格式

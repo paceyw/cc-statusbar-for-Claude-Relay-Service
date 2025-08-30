@@ -20,19 +20,41 @@ function log(message, color = COLORS.reset) {
     console.log(`${color}${message}${COLORS.reset}`);
 }
 
+// 公开安全的域名白名单
+const SAFE_DOMAINS = [
+    'github.com', 'githubusercontent.com',
+    'npmjs.org', 'registry.npmjs.org',
+    'googleapis.com', 'gstatic.com',
+    'jsdelivr.net', 'cloudflare.com', 'cdnjs.cloudflare.com',
+    'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'
+];
+
 // 敏感模式列表
 const SENSITIVE_PATTERNS = [
-    // 具体的 URL
-    /https?:\/\/(?!localhost|127\.0\.0\.1|example\.com|your-domain\.com)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[/\w.-]*(?:\?[&=\w.-]*)?/g,
+    // 私人API URL（排除公开CDN和服务）
+    function(content) {
+        const urlPattern = /https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[/\w.-]*(?:\?[&=\w.-]*)?/g;
+        const matches = [];
+        let match;
+        while ((match = urlPattern.exec(content)) !== null) {
+            const url = match[0];
+            const isSafe = SAFE_DOMAINS.some(domain => url.includes(domain)) ||
+                          url.includes('localhost') || url.includes('127.0.0.1') ||
+                          url.includes('example.com') || url.includes('your-domain.com') ||
+                          url.includes('your-api-domain.com');
+            if (!isSafe) {
+                matches.push({match: match[0], index: match.index});
+            }
+        }
+        return matches;
+    },
     // API Key 模式
     /sk-[a-zA-Z0-9]{20,}/g,
     /Bearer\s+[a-zA-Z0-9+/]{20,}/g,
     // 具体的敏感环境变量值（非变量名本身）
     /CC_SCRAPE_URL\s*=\s*["']https?:\/\/[^"']+["']/g,
-    // IP 地址（排除保留地址）
-    /(?!127\.0\.0\.1|192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g,
-    // 具体域名在代码中的引用
-    /[a-zA-Z0-9.-]+\.(?:com|net|org|cn|io)(?!\.(example|test|localhost))/g
+    // IP 地址（排除保留地址和版本号）
+    /(?!127\.0\.0\.1|192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|120\.0\.0\.0)\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g
 ];
 
 // 排除文件模式
@@ -86,24 +108,38 @@ function scanFile(filePath) {
     const findings = [];
     
     for (const pattern of SENSITIVE_PATTERNS) {
-        let match;
-        const globalPattern = new RegExp(pattern.source, pattern.flags);
-        
-        while ((match = globalPattern.exec(content)) !== null) {
-            // 排除一些已知的安全占位符
-            const matchText = match[0];
-            if (matchText.includes('your-domain.com') || 
-                matchText.includes('your-api-id') || 
-                matchText.includes('example.com')) {
-                continue;
+        if (typeof pattern === 'function') {
+            // 处理自定义函数模式
+            const matches = pattern(content);
+            for (const matchInfo of matches) {
+                findings.push({
+                    file: relativePath,
+                    line: content.substring(0, matchInfo.index).split('\n').length,
+                    match: matchInfo.match,
+                    context: getContext(content, matchInfo.index)
+                });
             }
+        } else {
+            // 处理正则表达式模式
+            let match;
+            const globalPattern = new RegExp(pattern.source, pattern.flags);
             
-            findings.push({
-                file: relativePath,
-                line: content.substring(0, match.index).split('\n').length,
-                match: matchText,
-                context: getContext(content, match.index)
-            });
+            while ((match = globalPattern.exec(content)) !== null) {
+                // 排除一些已知的安全占位符
+                const matchText = match[0];
+                if (matchText.includes('your-domain.com') || 
+                    matchText.includes('your-api-id') || 
+                    matchText.includes('example.com')) {
+                    continue;
+                }
+                
+                findings.push({
+                    file: relativePath,
+                    line: content.substring(0, match.index).split('\n').length,
+                    match: matchText,
+                    context: getContext(content, match.index)
+                });
+            }
         }
     }
     

@@ -1,6 +1,6 @@
 {
   "api": {
-    "url": "https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=08770f92-93ff-490a-9e48-7c062c2ba737",
+    "url": "https://your-api-domain.com:6443/admin-next/api-stats?apiId=your-api-id",
     "timeout": 15000,
     "retryAttempts": 3,
     "retryDelay": 1000,
