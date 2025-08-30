@@ -1,530 +1,484 @@
 #!/usr/bin/env node
 
 /**
- * Claude Code状态栏脚本
+ * Claude Code增强状态栏脚本
+ * 结合 shell PS1 风格信息和 Claude API 监控数据
  * 符合Claude Code状态栏标准，接收JSON输入并输出格式化状态信息
- * 参考: @chongdashu/cc-statusline 设计模式
  */
 
 const fs = require('fs');
 const path = require('path');
-const ApiService = require('./api-service');
-const { parseApiStats, formatStats, getApiStats } = require('./data-parser');
-const UIComponents = require('./ui-components');
+const os = require('os');
+const { execSync } = require('child_process');
+const AdminHtmlProvider = require('./admin-html-provider');
 
-class ClaudeCodeStatusLine {
-    constructor() {
-        this.apiService = new ApiService();
-        this.parser = { parseApiStats, formatStats, getApiStats };
-        this.uiComponents = new UIComponents();
-        this.config = this.loadConfig();
-        this.cache = new Map();
-        this.lastUpdate = 0;
-        this.updateInterval = 15000; // 15秒更新间隔，提高响应速度
-    }
+class EnhancedStatusLine {
+  constructor(config = {}) {
+    // 加载配置文件
+    const loadedConfig = this.loadConfig();
+    
+    this.config = Object.assign({
+      fetchUrl: process.env.CC_SCRAPE_URL || 'https://icode.cloudrainer.top:6443/admin-next/api-stats?apiId=replace-me',
+      maxLength: 120, // 增加默认长度以容纳更多信息
+      display: {
+        // Shell PS1 风格显示选项 - 全部关闭以匹配用户期望格式
+        showUser: false,
+        showHost: false,
+        showWorkspace: false,
+        showGitBranch: false,
+        showTime: false,
+        // API 监控显示选项
+        showRequests: true,
+        showTokens: true,
+        showCost: true,
+        showPercentage: true, // 启用百分比显示
+        showProgressBar: false,
+        showLastUpdate: true, // 启用更新时间显示
+        showExpiry: true,
+      },
+      alerts: {
+        costWarningThreshold: 60,
+        costCriticalThreshold: 85,
+      }
+    }, loadedConfig, config);
 
-    /**
-     * 加载配置文件
-     * @returns {Object} 配置对象
-     */
-    loadConfig() {
-        const os = require('os');
-        const defaultConfig = {
-            api: {
-                url: 'https://your-domain.com/admin-next/api-stats?apiId=your-api-id',
-                timeout: 15000,
-                retryAttempts: 3,
-                retryDelay: 1000,
-                cacheTimeout: 30000
-            },
-            display: {
-                showRequests: true,
-                showTokens: true,
-                showCost: true,
-                showPercentage: true,
-                showTrends: true,
-                showApiStats: false,
-                showExpiry: true,
-                showLastUpdate: true,
-                maxLineLength: 100,
-                enableMultiLine: true
-            },
-            alerts: {
-                costWarningThreshold: 60,
-                costCriticalThreshold: 80,
-                enableNotifications: false
-            },
-            cache: {
-                enablePersistent: true,
-                maxHistorySize: 10,
-                offlineMode: false
-            },
-            statusbar: {
-                updateInterval: 30,
-                position: 'right',
-                priority: 100,
-                separator: ' | ',
-                icons: {
-                    normal: '🟢',
-                    warning: '🟡',
-                    critical: '🔴',
-                    error: '❌',
-                    trending_up: '📈',
-                    trending_down: '📉'
-                }
-            },
-            debug: {
-                enableLogging: false,
-                logLevel: 'info',
-                logFile: '.claude/statusbar.log'
-            }
-        };
+    this.provider = new AdminHtmlProvider();
+    this.history = [];
+    this.lastUpdate = 0;
+    this.contextInput = null;
+  }
 
-        try {
-            // 尝试多个配置文件位置
-            const configPaths = [
-                path.join(process.cwd(), '.claude', 'cc-statusbar-config.json'),
-                path.join(process.cwd(), 'config.json'),
-                path.join(os.homedir(), '.claude', 'statusbar-config.json')
-            ];
+  // 加载配置文件
+  loadConfig() {
+    const configPaths = [
+      path.join(__dirname, '.claude', 'statusbar-config.json'),
+      path.join(__dirname, 'statusbar-config.json'),
+      path.join(os.homedir(), '.claude', 'statusbar-config.json')
+    ];
 
-            for (const configPath of configPaths) {
-                if (fs.existsSync(configPath)) {
-                    const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                    return this.mergeConfig(defaultConfig, userConfig);
-                }
-            }
-        } catch (error) {
-            // 配置文件读取失败，使用默认配置
+    for (const configPath of configPaths) {
+      try {
+        if (fs.existsSync(configPath)) {
+          const configData = fs.readFileSync(configPath, 'utf8');
+          return JSON.parse(configData);
         }
-
-        return defaultConfig;
+      } catch (e) {
+        // 忽略配置文件读取错误，继续尝试下一个路径
+      }
     }
+    
+    return {};
+  }
 
-    /**
-     * 深度合并配置对象
-     * @param {Object} defaultConfig - 默认配置
-     * @param {Object} userConfig - 用户配置
-     * @returns {Object} 合并后的配置
-     */
-    mergeConfig(defaultConfig, userConfig) {
-        const merged = { ...defaultConfig };
+  // 从 Claude Code 输入中解析上下文信息
+  parseContext(input) {
+    try {
+      this.contextInput = JSON.parse(input);
+    } catch (e) {
+      this.contextInput = null;
+    }
+  }
+
+  // 获取用户名
+  getUsername() {
+    try {
+      return os.userInfo().username || 'user';
+    } catch {
+      return 'user';
+    }
+  }
+
+  // 获取主机名
+  getHostname() {
+    try {
+      return os.hostname().split('.')[0] || 'localhost';
+    } catch {
+      return 'localhost';
+    }
+  }
+
+  // 获取当前工作目录的简写形式
+  getCurrentDirectory() {
+    if (this.contextInput && this.contextInput.workspace) {
+      const currentDir = this.contextInput.workspace.current_dir || this.contextInput.cwd;
+      if (currentDir) {
+        return path.basename(currentDir);
+      }
+    }
+    try {
+      return path.basename(process.cwd());
+    } catch {
+      return '~';
+    }
+  }
+
+  // 获取工作区显示标签（优先环境变量覆盖）
+  getWorkspaceLabel() {
+    if (process.env.CC_PROJECT_LABEL && String(process.env.CC_PROJECT_LABEL).trim()) {
+      return String(process.env.CC_PROJECT_LABEL).trim();
+    }
+    // 若 Claude 上下文含有名称则优先
+    if (this.contextInput && this.contextInput.workspace && this.contextInput.workspace.name) {
+      return String(this.contextInput.workspace.name);
+    }
+    return this.getCurrentDirectory();
+  }
+
+  // 获取 Git 分支信息
+  getGitBranch() {
+    try {
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+        timeout: 1000
+      }).trim();
+      
+      // 获取 Git 状态
+      try {
+        const status = execSync('git status --porcelain', {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+          timeout: 1000
+        }).trim();
         
-        for (const key in userConfig) {
-            if (userConfig.hasOwnProperty(key)) {
-                if (typeof userConfig[key] === 'object' && userConfig[key] !== null && !Array.isArray(userConfig[key])) {
-                    merged[key] = { ...merged[key], ...userConfig[key] };
-                } else {
-                    merged[key] = userConfig[key];
-                }
-            }
+        if (status) {
+          return `${branch}*`; // 有未提交的更改
         }
-        
-        return merged;
+        return branch;
+      } catch {
+        return branch;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  // 获取当前时间 (HH:MM:SS)
+  getCurrentTime() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  // 构建 shell 风格的提示符部分
+  buildShellPrompt() {
+    const parts = [];
+
+    if (this.config.display.showTime) {
+      parts.push(`${this.getCurrentTime()}`);
     }
 
-    /**
-     * 从stdin读取Claude Code传递的JSON数据
-     * @returns {Promise<Object>} Claude Code上下文数据
-     */
-    async readClaudeCodeInput() {
-        return new Promise((resolve) => {
-            let input = '';
-            
-            // 设置超时，如果没有输入则使用默认数据
-            const timeout = setTimeout(() => {
-                resolve(this.getDefaultClaudeData());
-            }, 100);
-
-            process.stdin.on('data', (chunk) => {
-                input += chunk.toString();
-            });
-
-            process.stdin.on('end', () => {
-                clearTimeout(timeout);
-                try {
-                    const data = JSON.parse(input);
-                    resolve(data);
-                } catch (error) {
-                    resolve(this.getDefaultClaudeData());
-                }
-            });
-
-            // 如果没有管道输入，立即结束
-            if (process.stdin.isTTY) {
-                clearTimeout(timeout);
-                resolve(this.getDefaultClaudeData());
-            }
-        });
+    if (this.config.display.showUser) {
+      parts.push(`${this.getUsername()}`);
     }
 
-    /**
-     * 获取默认的Claude数据（用于测试和fallback）
-     * @returns {Object} 默认数据
-     */
-    getDefaultClaudeData() {
-        return {
-            model: 'Claude 3.5 Sonnet',
-            version: '1.0.85',
-            session: {
-                id: 'test-session',
-                startTime: new Date().toISOString()
-            },
-            context: {
-                used: 45000,
-                total: 200000
-            },
-            directory: process.cwd()
-        };
+    if (this.config.display.showHost) {
+      parts.push(`@${this.getHostname()}`);
     }
 
-    /**
-     * 获取服务器状态数据（带持久化缓存）
-     * @returns {Promise<Object>} 状态数据
-     */
-    async getServerStatus() {
-        const now = Date.now();
-        const cacheFile = path.join('.claude', 'statusbar-cache.json');
-        
-        // 尝试从文件加载缓存
-        let cachedData = this.loadCache(cacheFile);
-        
-        // 检查缓存是否有效（使用Claude Code的调用间隔作为缓存时间）
-        const cacheValidTime = 25000; // 25秒，略小于Claude Code的30秒调用间隔
-        if (cachedData && cachedData.timestamp && (now - cachedData.timestamp) < cacheValidTime) {
-            return cachedData.data;
-        }
-
-        try {
-            // 确保服务实例配置正确
-            if (!this.apiService) {
-                this.apiService = new ApiService();
-            }
-            
-            // 应用配置
-            this.apiService.setCacheTTL(this.config.api.cacheTimeout);
-            this.apiService.setOfflineMode(this.config.cache.offlineMode);
-            
-            if (!this.parser) {
-                this.parser = { parseApiStats, formatStats, getApiStats };
-                this.parser.maxHistorySize = this.config.cache.maxHistorySize;
-                this.parser.dataHistory = [];
-            }
-            
-            // 获取新数据（关闭调试输出以避免干扰状态栏）
-            const { scrapeApiStats } = require('./puppeteer-scraper');
-            const rawData = await scrapeApiStats(this.config.api.url, this.config.api.timeout, this.config.debug.enableLogging);
-            if (rawData) {
-                const parsedData = this.parser.parseApiStats(rawData, this.config.debug.enableLogging);
-                // 转换字段名以匹配formatStatusLine的期望
-                const formattedData = {
-                    requestCount: parsedData.todayRequests,
-                    tokenCount: parsedData.todayTokens,
-                    todayCost: parsedData.todayCost,
-                    costLimit: `$${parsedData.dailyLimit}`,
-                    costPercentage: parsedData.usagePercentage,
-                    lastUpdate: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-                    updateTimestamp: now, // 添加时间戳用于变化检测
-                    expiryDate: parsedData.expiryDate,
-                    apiKeyName: parsedData.apiKeyName,
-                    apiStats: {
-                        successRate: 100 // 默认成功率
-                    }
-                };
-                
-                // 保存到文件缓存
-                this.saveCache(cacheFile, formattedData, now);
-                
-                return formattedData;
-            }
-        } catch (error) {
-            // 如果获取失败，返回缓存数据或错误状态
-            if (this.config.debug.enableLogging) {
-                console.error('获取服务器状态失败:', error);
-            }
-        }
-
-        // 返回过期的缓存数据（如果存在）
-        if (cachedData && cachedData.data) {
-            return cachedData.data;
-        }
-
-        return {
-            requestCount: 'N/A',
-            tokenCount: 'N/A',
-            todayCost: 'N/A',
-            costLimit: '$100.00',
-            costPercentage: 0,
-            error: '连接失败',
-            lastUpdate: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-        };
+    if (this.config.display.showWorkspace) {
+      // 使用工作区标签（支持 CC_PROJECT_LABEL 覆盖）
+      parts.push(`${this.getWorkspaceLabel()}`);
     }
 
-    /**
-     * 格式化状态栏输出
-     * @param {Object} claudeData - Claude Code数据
-     * @param {Object} serverData - 服务器状态数据
-     * @returns {string} 格式化的状态栏文本
-     */
-    formatStatusLine(claudeData, serverData) {
-        if (!serverData || serverData.error) {
-            return '❌ Claude API Error';
-        }
-
-        // 根据费用百分比选择颜色指示器
-        let costIndicator = this.config.statusbar.icons.normal;
-        if (serverData.costPercentage > this.config.alerts.costCriticalThreshold) {
-            costIndicator = this.config.statusbar.icons.critical;
-        } else if (serverData.costPercentage > this.config.alerts.costWarningThreshold) {
-            costIndicator = this.config.statusbar.icons.warning;
-        }
-
-        // 添加趋势指示器
-        let trendIndicator = '';
-        if (this.config.display.showTrends && this.parser && this.parser.dataHistory && this.parser.dataHistory.length > 1) {
-            const costTrend = this.analyzeTrend('todayCost', 3);
-            if (costTrend && costTrend.direction === 'increasing' && Math.abs(costTrend.changePercent) > 10) {
-                trendIndicator = this.config.statusbar.icons.trending_up;
-            } else if (costTrend && costTrend.direction === 'decreasing' && Math.abs(costTrend.changePercent) > 10) {
-                trendIndicator = this.config.statusbar.icons.trending_down;
-            }
-        }
-
-        // 构建主要状态信息（第一行）
-        const mainElements = [
-            (costIndicator || trendIndicator) ? `${costIndicator}${trendIndicator}` : null,
-            this.config.display.showRequests && serverData.requestCount !== 'N/A' ? `${serverData.requestCount} Requests` : null,
-            this.config.display.showTokens && serverData.tokenCount !== 'N/A' ? `${this.formatCompactTokens(serverData.tokenCount)} Tokens` : null,
-            this.config.display.showCost && serverData.todayCost !== 'N/A' ? 
-                `$${serverData.todayCost}${this.config.display.showPercentage ? `(${serverData.costPercentage}%)` : ''}` : null
-        ].filter(Boolean);
-
-        let mainLine = mainElements.join(this.config.statusbar.separator);
-
-        // 构建时间信息（可能的第二行）
-        const timeElements = [];
-        
-        if (this.config.display.showExpiry && serverData.expiryDate) {
-            timeElements.push(`到期: ${serverData.expiryDate}`);
-        }
-        
-        if (this.config.display.showLastUpdate && serverData.lastUpdate) {
-            // 添加秒数指示器，让用户看到实时更新
-            const seconds = new Date().getSeconds();
-            timeElements.push(`更新: ${serverData.lastUpdate}:${seconds.toString().padStart(2, '0')}`);
-        }
-
-        let timeLine = timeElements.length > 0 ? timeElements.join(this.config.statusbar.separator) : '';
-
-        // 决定显示格式（一行或两行）
-        if (this.config.display.enableMultiLine) {
-            const totalLength = mainLine.length + (timeLine ? timeLine.length : 0);
-            
-            if (totalLength > this.config.display.maxLineLength && timeLine) {
-                // 两行显示
-                return mainLine + '\n' + timeLine;
-            } else if (timeLine) {
-                // 一行显示，添加时间信息
-                return mainLine + this.config.statusbar.separator + timeLine;
-            } else {
-                // 只有主要信息
-                return mainLine;
-            }
-        } else {
-            // 强制一行显示，如果太长则截断
-            const fullLine = timeLine ? mainLine + this.config.statusbar.separator + timeLine : mainLine;
-            if (fullLine.length > this.config.display.maxLineLength) {
-                return fullLine.substring(0, this.config.display.maxLineLength - 3) + '...';
-            }
-            return fullLine;
-        }
+    if (this.config.display.showGitBranch) {
+      const branch = this.getGitBranch();
+      if (branch) {
+        parts.push(`(${branch})`);
+      }
     }
 
-    /**
-     * 格式化紧凑数字显示
-     * @param {number|string} value - 数值
-     * @returns {string} 格式化后的数字
-     */
-    formatCompactNumber(value) {
-        const num = typeof value === 'string' ? parseFloat(value.replace(/[^\d.]/g, '')) : value;
-        if (isNaN(num)) return value.toString();
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(1) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(1) + 'K';
-        }
-        return num.toString();
+    return parts.length > 0 ? parts.join(' ') : '';
+  }
+
+  // 计算实际最大长度：优先使用终端宽度
+  effectiveMaxLength() {
+    const termCols = process.stdout && process.stdout.columns ? Math.max(20, process.stdout.columns - 2) : null;
+    const envLen = process.env.CC_STATUS_MAXLEN ? parseInt(process.env.CC_STATUS_MAXLEN, 10) : null;
+    const base = this.config.maxLength || 80;
+    // env > term > base
+    return (envLen && envLen > 0) ? envLen : (termCols || base);
+  }
+
+  // 简单的千分位与K/M缩写
+  formatTokens(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '0';
+    // 智能格式化 - 去掉不必要的小数位
+    const formatNumber = (num) => {
+      const rounded = Number(num.toFixed(1));
+      return Number.isInteger(rounded) ? String(Math.trunc(rounded)) : rounded.toFixed(1);
+    };
+    
+    if (n >= 1_000_000) return `${formatNumber(n / 1_000_000)}M`;
+    if (n >= 1_000) return `${formatNumber(n / 1_000)}K`;
+    return `${Math.trunc(n)}`;
+  }
+
+  // 将 provider DTO 归一化为显示数据
+  normalizeDto(dto) {
+    if (!dto || typeof dto !== 'object') {
+      return {
+        requestCount: 0,
+        tokenCount: 0,
+        todayCost: '0.00',
+        costLimit: '∞',
+        costPercentage: null,
+        todayCostNumeric: 0,
+        costLimitNumeric: 0,
+        expiryDate: '',
+        lastUpdate: new Date().toISOString(),
+      };
     }
 
-    /**
-     * 格式化紧凑Token显示
-     * @param {number|string} value - Token数值
-     * @returns {string} 格式化后的Token
-     */
-    formatCompactTokens(value) {
-        const tokenStr = value.toString();
-        if (tokenStr.includes('M') || tokenStr.includes('K')) {
-            return tokenStr;
-        }
-        
-        const num = parseFloat(tokenStr.replace(/[^\d.]/g, ''));
-        if (isNaN(num)) return tokenStr;
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(1) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(1) + 'K';
-        }
-        return num.toString();
+    const todayCostNum = Number(dto.todayCost) || 0;
+    const costLimitNum = Number(dto.costLimit) || 0; // 0 代表无限制
+
+    // 计算百分比（只在有限额时）保留 1 位小数
+    let pct = null;
+    if (costLimitNum > 0) {
+      const raw = (todayCostNum / costLimitNum) * 100;
+      pct = isFinite(raw) ? parseFloat(raw.toFixed(1)) : 0;
     }
 
-    /**
-     * 分析数据趋势
-     * @param {string} field - 要分析的字段
-     * @param {number} periods - 分析周期数
-     * @returns {Object} 趋势分析结果
-     */
-    analyzeTrend(field, periods = 3) {
-        if (!this.parser || !this.parser.dataHistory || this.parser.dataHistory.length < 2) {
-            return null;
-        }
+    // 金额智能格式化（整数去掉 .00）
+    const fmtMoney = (n) => {
+      if (!isFinite(n)) return '0';
+      const rounded = Number(n.toFixed(2));
+      return Number.isInteger(rounded) ? String(Math.trunc(rounded)) : rounded.toFixed(2);
+    };
 
-        const history = this.parser.dataHistory.slice(-periods);
-        if (history.length < 2) return null;
+    return {
+      requestCount: Number(dto.requestCount) || 0,
+      tokenCount: Number(dto.tokenCount) || 0,
+      todayCost: fmtMoney(todayCostNum),
+      costLimit: costLimitNum > 0 ? `$${fmtMoney(costLimitNum)}` : '∞',
+      costPercentage: pct,
+      todayCostNumeric: todayCostNum,
+      costLimitNumeric: costLimitNum,
+      expiryDate: dto.expiryDate || '',
+      lastUpdate: dto.lastUpdate || new Date().toISOString(),
+    };
+  }
 
-        const values = history.map(item => {
-            const value = item[field];
-            return typeof value === 'string' ? parseFloat(value.replace(/[^\d.]/g, '')) : value;
-        }).filter(v => !isNaN(v));
+  // 本地时区：YYYY/MM/DD HH:MM 格式
+  formatLocalDateTime(dt) {
+    if (!dt) return '';
+    const d = new Date(dt);
+    if (isNaN(d.getTime())) return '';
+    const y = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${y}/${mm}/${dd} ${hh}:${mi}`;
+  }
 
-        if (values.length < 2) return null;
+  // 2) 自适应：逐步压缩内容以适配宽度
+  compactToFit(parts, times, maxLen) {
+    let p = [...parts];
+    let t = [...times];
+    let line = this.buildLine(p, t).replace(/\|/g, ' | ');
+    if (line.length <= maxLen) return line;
 
-        const first = values[0];
-        const last = values[values.length - 1];
-        const changePercent = ((last - first) / first) * 100;
+    // 先移除 tokens 段（索引2）
+    if (p.length > 2) p.splice(2, 1);
+    line = this.buildLine(p, t).replace(/\|/g, ' | ');
+    if (line.length <= maxLen) return line;
 
-        return {
-            direction: changePercent > 0 ? 'increasing' : 'decreasing',
-            changePercent: Math.abs(changePercent),
-            values: values
-        };
+    // 再移除 requests 段（索引1）
+    if (p.length > 1) p.splice(1, 1);
+    line = this.buildLine(p, t).replace(/\|/g, ' | ');
+    if (line.length <= maxLen) return line;
+
+    // 再移除时间：先“到期：”，后“更新：”
+    const removeTime = (prefix) => {
+      const idx = t.findIndex(x => x.startsWith(prefix));
+      if (idx !== -1) t.splice(idx, 1);
+    };
+
+    removeTime('到期：');
+    line = this.buildLine(p, t).replace(/\|/g, ' | ');
+    if (line.length <= maxLen) return line;
+
+    removeTime('更新：');
+    line = this.buildLine(p, t).replace(/\|/g, ' | ');
+    if (line.length <= maxLen) return line;
+
+    return line.slice(0, Math.max(0, maxLen - 1)) + '…';
+  }
+
+  // 格式化状态栏输出
+  formatStatus(serverData) {
+    // 指示灯
+    let statusIcon = '🟢';
+    if (serverData.costLimitNumeric > 0 && typeof serverData.costPercentage === 'number') {
+      const p = serverData.costPercentage;
+      if (p >= 90) statusIcon = '🔴';
+      else if (p >= 70) statusIcon = '🟡';
+      else statusIcon = '🟢';
     }
 
-    /**
-     * 创建进度条
-     * @param {number} percentage - 百分比
-     * @param {number} width - 进度条宽度
-     * @returns {string} 进度条字符串
-     */
-    createProgressBar(percentage, width = 10) {
-        const filled = Math.round((percentage / 100) * width);
-        const empty = width - filled;
-        return '[' + '='.repeat(filled) + '-'.repeat(empty) + ']';
+    // 构建状态栏组件 - 使用 | 分隔符，格式：🟢|1840 Requests|48.2M Tokens|$29.22(29%)|到期：2025/09/21 01:08|更新：23:23:54
+    const components = [];
+    
+    // 状态图标
+    components.push(statusIcon);
+    
+    // 请求数
+    if (this.config.display.showRequests) {
+      components.push(`${serverData.requestCount} Requests`);
+    }
+    
+    // Token数
+    if (this.config.display.showTokens) {
+      components.push(`${this.formatTokens(serverData.tokenCount)} Tokens`);
+    }
+    
+    // 成本和百分比
+    if (this.config.display.showCost) {
+      let costPart = `$${serverData.todayCost}`;
+      
+      // 添加百分比（如果有限额且启用了百分比显示）
+      if (this.config.display.showPercentage && 
+          serverData.costLimitNumeric > 0 && 
+          typeof serverData.costPercentage === 'number') {
+        costPart += `(${serverData.costPercentage}%)`;
+      }
+      
+      components.push(costPart);
     }
 
-    /**
-     * 应用颜色（如果启用）
-     * @param {string} text - 文本
-     * @param {string} color - 颜色代码
-     * @returns {string} 带颜色的文本
-     */
-    applyColor(text, color) {
-        if (!this.config.colorEnabled || process.env.NO_COLOR) {
-            return text;
-        }
-        
-        const colors = {
-            red: '\x1b[31m',
-            green: '\x1b[32m',
-            yellow: '\x1b[33m',
-            blue: '\x1b[34m',
-            magenta: '\x1b[35m',
-            cyan: '\x1b[36m',
-            reset: '\x1b[0m'
-        };
-        
-        return colors[color] + text + colors.reset;
+    // 到期时间
+    if (this.config.display.showExpiry && serverData.expiryDate) {
+      const exp = this.formatLocalDateTime(serverData.expiryDate);
+      if (exp) {
+        components.push(`到期：${exp}`);
+      }
     }
 
-    /**
-     * 从文件加载缓存数据
-     * @param {string} cacheFile - 缓存文件路径
-     * @returns {Object|null} 缓存数据
-     */
-    loadCache(cacheFile) {
-        try {
-            if (fs.existsSync(cacheFile)) {
-                const cacheContent = fs.readFileSync(cacheFile, 'utf8');
-                return JSON.parse(cacheContent);
-            }
-        } catch (error) {
-            if (this.config.debug.enableLogging) {
-                console.error('加载缓存失败:', error);
-            }
-        }
-        return null;
+    // 更新时间
+    if (this.config.display.showLastUpdate && serverData.lastUpdate) {
+      const updateTime = this.formatLocalDateTime(serverData.lastUpdate);
+      if (updateTime) {
+        // 只显示时间部分 (HH:MM:SS)
+        const timePart = updateTime.split(' ')[1] || updateTime;
+        components.push(`更新：${timePart}`);
+      }
     }
 
-    /**
-     * 保存数据到缓存文件
-     * @param {string} cacheFile - 缓存文件路径
-     * @param {Object} data - 要缓存的数据
-     * @param {number} timestamp - 时间戳
-     */
-    saveCache(cacheFile, data, timestamp) {
-        try {
-            const cacheDir = path.dirname(cacheFile);
-            if (!fs.existsSync(cacheDir)) {
-                fs.mkdirSync(cacheDir, { recursive: true });
-            }
-            
-            const cacheData = {
-                data: data,
-                timestamp: timestamp
-            };
-            
-            fs.writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2), 'utf8');
-        } catch (error) {
-            if (this.config.debug.enableLogging) {
-                console.error('保存缓存失败:', error);
-            }
-        }
+    return components.join(' | ');
+  }
+
+  // 增强的自适应压缩方法
+  compactToFitEnhanced(parts, times, maxLen) {
+    let p = [...parts];
+    let t = [...times];
+    let line = [...p, ...t].filter(Boolean).join(' | ');
+    if (line.length <= maxLen) return line;
+
+    // 逐步移除时间信息
+    if (t.length > 0) {
+      t = [];
+      line = [...p, ...t].filter(Boolean).join(' | ');
+      if (line.length <= maxLen) return line;
     }
 
-    /**
-     * 主执行函数
-     */
-    async run() {
-        try {
-            // 读取Claude Code输入数据
-            const claudeData = await this.readClaudeCodeInput();
-            
-            // 获取服务器状态
-            const serverData = await this.getServerStatus();
-            
-            // 格式化并输出状态栏
-            const statusLine = this.formatStatusLine(claudeData, serverData);
-            
-            // 输出到stdout（Claude Code会读取这个输出）
-            console.log(statusLine);
-            
-        } catch (error) {
-            // 错误情况下输出简化状态
-            console.log('⚠️ CC状态栏错误');
-        } finally {
-            // 确保进程退出
-            if (require.main === module) {
-                process.exit(0);
-            }
-        }
+    // 压缩 API 信息
+    if (p.length > 1) {
+      // 简化最后一个元素（API 信息）
+      const apiPart = p[p.length - 1];
+      if (apiPart.includes('req') && apiPart.includes('tok')) {
+        // 移除 tokens 信息
+        p[p.length - 1] = apiPart.replace(/\s+\d+[\.\d]*[KM]?tok/, '');
+        line = [...p, ...t].filter(Boolean).join(' | ');
+        if (line.length <= maxLen) return line;
+      }
     }
+
+    // 如果还是太长，截断
+    return line.slice(0, Math.max(0, maxLen - 1)) + '…';
+  }
+
+  analyzeTrend(key, windowSize = 3) {
+    const series = this.history.slice(-windowSize).map(x => Number(x[key]) || 0);
+    if (series.length < 2) return 'flat';
+    const diff = series[series.length - 1] - series[0];
+    if (diff > 0.01) return 'up';
+    if (diff < -0.01) return 'down';
+    return 'flat';
+  }
+
+  // 构建行文本（统一用“|”无空格分隔）
+  buildLine(parts, times) {
+    const all = [...parts, ...times].filter(Boolean);
+    return all.join('|');
+  }
+
+  async runOnce() {
+    // 读取 Claude Code 的 JSON 输入
+    if (process.stdin.isTTY === false) {
+      try {
+        const input = await this.readStdin();
+        this.parseContext(input);
+      } catch (e) {
+        // 忽略 stdin 读取错误，继续执行
+      }
+    }
+
+    try {
+      const dto = await this.provider.fetchAndParse(this.config.fetchUrl);
+      const normalized = this.normalizeDto(dto);
+      this.history.push(normalized);
+      const output = this.formatStatus(normalized);
+      console.log(output);
+    } catch (e) {
+      // 即使 API 失败，也显示 shell 信息
+      const fallbackData = this.normalizeDto(null);
+      const shellPrompt = this.buildShellPrompt();
+      if (shellPrompt) {
+        console.log(`${shellPrompt} | ⚠️ API离线`);
+      } else {
+        console.log('⚠️ CC状态栏错误');
+      }
+    }
+  }
+
+  // 读取 stdin 输入
+  async readStdin() {
+    return new Promise((resolve, reject) => {
+      let data = '';
+      const timeout = setTimeout(() => {
+        reject(new Error('stdin timeout'));
+      }, 1000);
+
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      process.stdin.on('end', () => {
+        clearTimeout(timeout);
+        resolve(data);
+      });
+
+      process.stdin.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+  }
 }
 
-// 如果直接运行此脚本
+// 兼容桥接类，供旧测试/调用方识别
+class StatusLine extends EnhancedStatusLine {}
+
 if (require.main === module) {
-    const statusLine = new ClaudeCodeStatusLine();
-    statusLine.run();
+  const status = new EnhancedStatusLine();
+  status.runOnce();
 }
 
-module.exports = ClaudeCodeStatusLine;
+// 默认导出增强版，同时提供兼容别名
+module.exports = EnhancedStatusLine;
+module.exports.StatusLine = EnhancedStatusLine;

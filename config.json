@@ -14,7 +14,13 @@
     "showPercentage": true,
     "showTrends": true,
     "showApiStats": false,
-    "maxLength": 100
+    "maxLength": 120,
+    "showUser": true,
+    "showHost": true,
+    "showWorkspace": true,
+    "showGitBranch": true,
+    "showTime": true,
+    "showExpiry": true
   },
   "alerts": {
     "costWarningThreshold": 60,
@@ -31,6 +37,19 @@
     "position": "right",
     "priority": 100,
     "separator": "|",
+    "shellPS1Style": {
+      "enabled": true,
+      "format": "$(whoami)@$(hostname) $(basename \"$(pwd)\") $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'no-git') $(date +%H:%M:%S)",
+      "showPromptChar": false,
+      "customElements": {
+        "showUser": true,
+        "showHost": true,
+        "showWorkingDir": true,
+        "showGitBranch": true,
+        "showTime": true,
+        "showClaude": true
+      }
+    },
     "icons": {
       "normal": "🟢",
       "warning": "🟡",
@@ -42,7 +61,12 @@
       "requests": "📊",
       "tokens": "🔤",
       "cost": "💰",
-      "context": "🧠"
+      "context": "🧠",
+      "user": "👤",
+      "host": "🖥️",
+      "folder": "📁",
+      "git": "🌿",
+      "time": "🕐"
     }
   },
   "debug": {

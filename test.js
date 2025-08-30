@@ -49,8 +49,7 @@ class StatusBarTester {
 
         const optionalModules = [
             { name: 'axios', package: 'axios' },
-            { name: 'cheerio', package: 'cheerio' },
-            { name: 'puppeteer', package: 'puppeteer' }
+            { name: 'cheerio', package: 'cheerio' }
         ];
 
         let requiredPassed = 0;
@@ -98,7 +97,7 @@ class StatusBarTester {
             'statusline.js',
             'api-service.js',
             'data-parser.js',
-            'puppeteer-scraper.js',
+            'admin-html-provider.js',
             'package.json'
         ];
 
@@ -175,17 +174,21 @@ class StatusBarTester {
                 // 使用简单的模块加载测试，避免执行网络请求
                 const content = fs.readFileSync(statusLinePath, 'utf8');
                 
-                if (content.includes('class ClaudeCodeStatusLine')) {
-                    console.log('  ✅ ClaudeCodeStatusLine 类定义存在');
+                // 适配当前实现（类名与方法）
+                const hasClass = content.includes('class StatusLine');
+                const hasMethod = content.includes('formatStatus(');
+
+                if (hasClass) {
+                    console.log('  ✅ StatusLine 类定义存在');
                 } else {
-                    console.log('  ❌ ClaudeCodeStatusLine 类定义缺失');
+                    console.log('  ❌ StatusLine 类定义缺失');
                     return false;
                 }
 
-                if (content.includes('formatStatusLine')) {
-                    console.log('  ✅ formatStatusLine 方法存在');
+                if (hasMethod) {
+                    console.log('  ✅ formatStatus 方法存在');
                 } else {
-                    console.log('  ❌ formatStatusLine 方法缺失');
+                    console.log('  ❌ formatStatus 方法缺失');
                     return false;
                 }
 
@@ -252,11 +255,10 @@ class StatusBarTester {
     }
 }
 
-// 如果直接运行此脚本
 if (require.main === module) {
     const tester = new StatusBarTester();
     tester.runAllTests().catch(error => {
-        console.error('❌ 测试过程中发生错误:', error);
+        console.error('❌ 测试运行异常:', error);
         process.exit(1);
     });
 }

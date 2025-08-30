@@ -11,7 +11,7 @@ rm -f test-*.js *.log api-stats-screenshot.png
 # 检查并确保以下文件不包含真实的API信息：
 # - statusline.js (默认配置应使用占位符)  
 # - data-parser.js (示例URL应使用占位符)
-# - puppeteer-scraper.js (示例URL应使用占位符)
+# - admin-html-provider.js (示例URL应使用占位符)
 ```
 
 ### 2️⃣ **打包项目**
@@ -114,7 +114,7 @@ node statusline.js
   },
   "display": {
     "compactMode": false,
-    "showRequests": true,
+    "showRequests": true, 
     "showTokens": true, 
     "showCost": true,
     "showPercentage": true,
@@ -135,7 +135,7 @@ node statusline.js
 
 ### ⏱️ 更新机制
 - **更新间隔**: 30秒（可配置）
-- **缓存策略**: 智能缓存避免频繁请求
+- **缓存策略**: AdminHtmlProvider 内存缓存，避免频繁请求
 - **失败处理**: 自动降级到缓存数据
 
 ### 🧪 测试自动更新
@@ -181,9 +181,9 @@ node test-updates.js
 
 ### 核心文件
 - `statusline.js` - 主程序入口
+- `admin-html-provider.js` - 管理页抓取器（HTTP+DOM解析）
 - `api-service.js` - API服务层
 - `data-parser.js` - 数据解析引擎
-- `puppeteer-scraper.js` - 网页抓取器
 - `ui-components.js` - UI组件库
 - `install.js` - 安装配置脚本
 

@@ -165,3 +165,16 @@ troubleshoot*.js
 troubleshoot*.md
 问题排查*.md
 故障排除*.md
+
+# 临时数据文件（包含用户隐私数据）
+user-stats.json
+user-model-stats.json
+flatten-*.json
+derived-*.json
+*-summary.json
+
+# 开发工具相关文件
+.windsurfrules
+.cursor/
+.superdesign/
+ui-components.js

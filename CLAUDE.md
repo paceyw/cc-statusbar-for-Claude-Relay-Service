@@ -22,8 +22,8 @@ npm run statusline
 # 手动测试数据解析
 node data-parser.js
 
-# 手动测试网页抓取
-node puppeteer-scraper.js
+# 手动测试网页抓取（通过 AdminHtmlProvider 链路间接验证）
+node data-parser.js
 ```
 
 ### 生产环境监控
@@ -63,7 +63,7 @@ node demo-status-viewer.js monitor 15
 
 ### 数据流架构
 系统采用**数据管道**模式：
-1. **数据源**：通过`puppeteer-scraper.js`抓取动态加载的Vue.js管理页面
+1. **数据源**：通过`admin-html-provider.js`（axios + cheerio）抓取 SSR/静态/半动态管理页面
 2. **数据解析**：`data-parser.js`将HTML文本解析为结构化统计数据
 3. **服务层**：`api-service.js`提供缓存、重试和离线模式支持
 4. **调度器**：`scheduler.js`定时获取和存储数据到JSON文件

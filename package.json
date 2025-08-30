@@ -1,6 +1,6 @@
 {
   "name": "claude-code-statusbar",
-  "version": "1.0.0",
+  "version": "2.0.2",
   "description": "Claude Code状态栏插件：实时监控中转API服务器用量统计",
   "main": "statusline.js",
   "bin": {
@@ -12,7 +12,7 @@
     "statusline": "node statusline.js",
     "build": "node scripts/build-local.js",
     "pack": "npm pack",
-    "prepublishOnly": "npm test",
+    "prepublishOnly": "node scripts/check-sensitive.js && npm test",
     "postinstall": "node scripts/postinstall.js",
     "config": "node scripts/global-config.js"
   },
@@ -43,7 +43,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.17.0"
   },
   "repository": {
     "type": "git",
@@ -55,8 +55,7 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "puppeteer": "^24.17.0"
+    "cheerio": "^1.0.0-rc.12"
   },
   "devDependencies": {
     "@types/node": "^18.0.0"
